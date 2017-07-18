@@ -1,0 +1,116 @@
+		
+AUTOSCALING GROUP DETAILS
+_________________________
+
+CreationPolicy :: 
+Use the CreationPolicy attribute when you want to wait on resource configuration actions before stack creation proceeds.
+
+                 (a) Count is derived from WebserverCapacity (default value). 
+                  Count is The number of success signals AWS CloudFormation must 
+				  receive before it sets the resource status as CREATE_COMPLETE.
+				  (b) Timeout - The length of time that AWS CloudFormation waits for the 
+				  number of signals that was specified in the Count property. After which the resource
+				  creation will fail  if it has not received the count number of success signals.
+UpdatePolicy :: 
+UpdatePolicy attribute specify how AWS CloudFormation handles updates to the AWS::AutoScaling::AutoScalingGroup resource.
+AutoScalingReplacingUpdate/ AutoScalingRollingUpdate happens when LaunchConfiguration or VPCZoneIdentifier changes, 
+AutoScalingScheduledAction when associated stack is updated.
+                (a) MinInstancesInService
+				Specifies the minimum number of instances that must be in service within the Auto Scaling group 
+				while AWS CloudFormation updates old instances.
+				(b) MaxBatchSize
+				Specifies the maximum number of instances that AWS CloudFormation updates.
+				(c) PauseTime
+				The amount of time that AWS CloudFormation pauses after making a change to a batch of instances to give 
+				those instances time to start software applications.
+				(d) WaitOnResourceSignals
+				If you enable the WaitOnResourceSignals property, PauseTime is the amount of time that AWS CloudFormation 
+				should wait for the Auto Scaling group to receive the required number of valid signals from added or replaced 
+				instances. If the PauseTime is exceeded before the Auto Scaling group receives the required number 
+				of signals, the update fails.
+
+MetricsCollection::
+The MetricsCollection is a property of the AWS::AutoScaling::AutoScalingGroup resource that describes the group metrics that 
+an Auto Scaling group sends to CloudWatch
+                (a) Granularity - The frequency at which Auto Scaling sends aggregated data to CloudWatch.
+				(b) Metrics
+
+LOADBALANCER TARGETGROUP
+_________________________
+
+HealthCheckIntervalSeconds - The approximate number of seconds between health checks for an individual target.
+HealthCheckTimeoutSeconds - The number of seconds to wait for a response before considering that a health check has failed.
+HealthyThresholdCount - The number of consecutive successful health checks that are required before an unhealthy target is considered healthy.
+UnhealthyThresholdCount - The number of consecutive failed health checks that are required before a target is considered unhealthy.
+TargetGroupAttributes
+            (a) stickiness.enabled
+			    Indicates whether sticky sessions are enabled
+			(b) stickiness.type
+			    The type of sticky sessions. The possible value is lb_cookie
+			(c) stickiness.lb_cookie.duration_seconds
+			     The time period, in seconds, during which requests from a client should be routed to the same target. 
+				 After this time period expires, the load balancer-generated cookie is considered stale. 
+				 The range is 1 second to 1 week (604800 seconds). The default value is 1 day (86400 seconds).
+
+
+LAUNCHCONFIG DETAILS
+_____________________
+
+Userdata used::
+#!/bin/bash -xe\n
+yum update -y aws-cfn-bootstrap
+/opt/aws/bin/cfn-init -v  --stack stackName --resource LaunchConfig --region Region
+/opt/aws/bin/cfn-signal -e $?  --stack stackName --resource WebServerGroup --region Region
+
+
+Metadata:: 
+Action to be performed defined as AWS::CloudFormation::Init metadata [This is triggered from userdata 
+section in properties when  /opt/aws/bin/cfn-init is called]
+
+Applications to be installed:
+1. Apache web server
+2. Php programming language
+
+Services to be started:
+1. httpd (Apache web server)
+2. cfn-hup (The cfn-hup helper is a daemon that detects changes in resource metadata 
+and runs user-specified actions when a change in meteadata is detected.That is when UpdatestackAPI is called. )
+This uses 2 configuration files created during boostrap. (a) /etc/cfn/cfn-hup.conf (b)/etc/cfn/hooks.d/cfn-auto-reloader.conf (This calls cfn-init internally)
+
+
+files to be added:
+1. /var/www/html/index.php  
+contains,
+<?php
+header('Content-Type: application/text; charset=utf-8');
+$response = 'Hello world';
+echo $response;
+?>
+
+2. /etc/cfn/cfn-hup.conf
+contains,
+[main]
+stack=stackName
+region=Region
+
+3. /etc/cfn/hooks.d/cfn-auto-reloader.conf  
+contains,
+[cfn-auto-reloader-hook]
+triggers=post.update
+path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init
+action=/opt/aws/bin/cfn-init -v --stack stackName --resource LaunchConfig --region Region
+runas=root
+
+
+SCALING POLICY
+_______________
+
+ScalingPolicy is SimpleScaling type [Both Scaleup( Add 1 ec2 instance when CPUAlarmHigh is breached ) 
+and Scaledown(Removes 1 EC2 instance when CPUAlarmLow is breached)]
+
+
+
+
+
+
+
